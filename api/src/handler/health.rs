@@ -8,3 +8,7 @@ pub async fn health_check_db(State(registry): State<AppRegistry>) -> StatusCode 
         StatusCode::INTERNAL_SERVER_ERROR
     }
 }
+
+pub async fn health_check() -> StatusCode {
+    StatusCode::OK
+}
