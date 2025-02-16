@@ -69,5 +69,42 @@ impl BookRepository for BookRepositoryImpl {
         Ok(row.map(Book::from))
     }
 }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[sqlx::test]
+    async fn test_register_book(pool: sqlx::PgPool) -> anyhow::Result<()> {
+        let repo = BookRepositoryImpl::new(ConnectionPool::new(pool));
+        let book = CreateBook {
+            title: "Web application development with Rust".into(),
+            author: "Hoge Fuga".into(),
+            isbn: "978-4-7741-9763-0".into(),
+            description: "This book is about web application development with Rust.".into(),
+        };
+        repo.create(book).await?;
+
+        let res = repo.find_all().await?;
+        assert_eq!(res.len(), 1);
+
+        let book_id = res[0].id;
+        let res = repo.find_by_id(book_id).await?;
+        assert!(res.is_some());
+
+        let Book {
+            id,
+            title,
+            author,
+            isbn,
+            description,
+        } = res.unwrap();
+        assert_eq!(id, book_id);
+        assert_eq!(title, "Web application development with Rust");
+        assert_eq!(author, "Hoge Fuga");
+        assert_eq!(isbn, "978-4-7741-9763-0");
+        assert_eq!(
+            description,
+            "This book is about web application development with Rust."
+        );
+        Ok(())
     }
 }
