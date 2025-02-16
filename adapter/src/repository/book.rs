@@ -7,7 +7,7 @@ use kernel::{
 };
 use uuid::Uuid;
 
-use crate::database::ConnectionPool;
+use crate::database::{model::book::BookRow, ConnectionPool};
 
 #[derive(new)]
 pub struct BookRepositoryImpl {
@@ -17,12 +17,57 @@ pub struct BookRepositoryImpl {
 #[async_trait]
 impl BookRepository for BookRepositoryImpl {
     async fn create(&self, event: CreateBook) -> Result<()> {
-        todo!()
+        sqlx::query!(
+            r#"
+                     INSERT INTO books (title, author, isbn, description)
+                     VALUES ($1, $2, $3, $4)
+                     "#,
+            event.title,
+            event.author,
+            event.isbn,
+            event.description,
+        )
+        .execute(self.db.inner_ref())
+        .await?;
+        Ok(())
     }
     async fn find_all(&self) -> Result<Vec<Book>> {
-        todo!()
+        let rows: Vec<BookRow> = sqlx::query_as!(
+            BookRow,
+            r#"
+                     SELECT
+                            book_id,
+                            title,
+                            author,
+                            isbn,
+                            description
+                        FROM books
+                        ORDER BY created_at DESC
+                        "#
+        )
+        .fetch_all(self.db.inner_ref())
+        .await?;
+        Ok(rows.into_iter().map(Book::from).collect())
     }
     async fn find_by_id(&self, book_id: Uuid) -> Result<Option<Book>> {
-        todo!()
+        let row: Option<BookRow> = sqlx::query_as!(
+            BookRow,
+            r#"
+                     SELECT
+                            book_id,
+                            title,
+                            author,
+                            isbn,
+                            description
+                        FROM books
+                        WHERE book_id = $1
+                        "#,
+            book_id
+        )
+        .fetch_optional(self.db.inner_ref())
+        .await?;
+        Ok(row.map(Book::from))
+    }
+}
     }
 }
