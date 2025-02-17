@@ -1,6 +1,12 @@
-use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
+use axum::{
+    extract::{Path, State},
+    http::StatusCode,
+    response::IntoResponse,
+    Json,
+};
 use registry::AppRegistry;
 use thiserror::Error;
+use uuid::Uuid;
 
 use crate::model::book::{BookResponse, CreateBookRequest};
 #[derive(Error, Debug)]
@@ -36,5 +42,20 @@ pub async fn show_book_list(
         .await
         .map(|v| v.into_iter().map(BookResponse::from).collect::<Vec<_>>())
         .map(Json)
+        .map_err(AppError::from)
+}
+
+pub async fn show_book(
+    Path(book_id): Path<Uuid>,
+    State(registry): State<AppRegistry>,
+) -> Result<Json<BookResponse>, AppError> {
+    registry
+        .book_repository()
+        .find_by_id(book_id)
+        .await
+        .and_then(|bc| match bc {
+            Some(v) => Ok(Json(v.into())),
+            None => Err(anyhow::anyhow!("Book not found")),
+        })
         .map_err(AppError::from)
 }
