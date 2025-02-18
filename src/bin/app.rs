@@ -1,4 +1,7 @@
-use std::net::{Ipv4Addr, SocketAddr};
+use std::{
+    net::{Ipv4Addr, SocketAddr},
+    prelude::v1,
+};
 
 use adapter::database::connect_database_with;
 use anyhow::{Error, Result};
@@ -10,6 +13,12 @@ use shared::{
     env::{which, Environment},
 };
 use tokio::net::TcpListener;
+use tower_http::{
+    cors,
+    trace::{DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse, TraceLayer},
+    LatencyUnit,
+};
+use tracing::Level;
 use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
@@ -23,8 +32,20 @@ async fn bootstrap() -> Result<()> {
     let pool = connect_database_with(&app_config.database);
     let registry = AppRegistry::new(pool);
     let app = Router::new()
+        .merge(v1::routes())
         .merge(build_health_check_routers())
         .merge(build_book_routers())
+        .layer(cors())
+        .layer(
+            TraceLayer::new_for_http()
+                .make_span_with(DefaultMakeSpan::new().level(Level::INFO))
+                .on_request(DefaultOnRequest::new().level(Level::INFO))
+                .on_response(
+                    DefaultOnResponse::new()
+                        .level(level::INFO)
+                        .latency_unit(LatencyUnit::Millis),
+                ),
+        )
         .with_state(registry);
 
     let addr = SocketAddr::new(Ipv4Addr::LOCALHOST.into(), 8080);
